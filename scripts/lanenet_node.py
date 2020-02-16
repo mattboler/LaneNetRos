@@ -18,6 +18,8 @@ from config import global_config
 
 import rospy
 from sensor_msgs.msg import Image
+from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
+from nav_msgs.msg import Path
 from std_msgs.msg import Header
 from cv_bridge import CvBridge, CvBridgeError
 from lane_detector.msg import Lane_Image
@@ -28,6 +30,7 @@ CFG = global_config.cfg
 
 class lanenet_detector():
     def __init__(self):
+        # ROS Stuff
         self.image_topic = rospy.get_param('~image_topic')
         self.output_image = rospy.get_param('~output_image')
         self.output_lane = rospy.get_param('~output_lane')
@@ -37,10 +40,21 @@ class lanenet_detector():
 
         self.init_lanenet()
         self.bridge = CvBridge()
-        sub_image = rospy.Subscriber(self.image_topic, Image, self.img_callback, queue_size=1)
+        # Buffer size 10mb?
+        self.sub_image = rospy.Subscriber(self.image_topic, Image, self.img_callback, queue_size=1, buff_size = 100000000)
         self.pub_image = rospy.Publisher(self.output_image, Image, queue_size=1)
         self.pub_laneimage = rospy.Publisher(self.lane_image_topic, Lane_Image, queue_size=1)
-
+        self.pub_nav = rospy.Publisher('lane_detector/waypoints', Path)
+        
+        # Camera Stuff
+        self.R = np.asarray([[0, -1, 0],
+                        [0, 0, -1],
+                        [1, 0, 0]], np.float32)
+        self.t = np.asarray([0, 0, -1.518], np.float32)
+        self.K = np.asarray([[617.2716, 0, 327.2818],
+                        [0, 617.1263, 245.0939],
+                        [0, 0, 1]], np.float32)
+        self.lane_width = 3.5 #m
     
     def init_lanenet(self):
         '''
@@ -58,15 +72,19 @@ class lanenet_detector():
         saver = tf.train.Saver()
         # Set sess configuration
         if self.use_gpu:
+            print("Running in GPU mode")
             sess_config = tf.ConfigProto(device_count={'GPU': 1})
+            sess_config.gpu_options.per_process_gpu_memory_fraction = CFG.TEST.GPU_MEMORY_FRACTION
+            sess_config.gpu_options.allow_growth = CFG.TRAIN.TF_ALLOW_GROWTH
+            sess_config.gpu_options.allocator_type = 'BFC'
+            self.sess = tf.Session(config=sess_config)
         else:
-            sess_config = tf.ConfigProto(device_count={'CPU': 0})
-        sess_config.gpu_options.per_process_gpu_memory_fraction = CFG.TEST.GPU_MEMORY_FRACTION
-        sess_config.gpu_options.allow_growth = CFG.TRAIN.TF_ALLOW_GROWTH
-        sess_config.gpu_options.allocator_type = 'BFC'
+            print("Running in CPU mode")
+            self.sess = tf.Session()
 
-        self.sess = tf.Session(config=sess_config)
         saver.restore(sess=self.sess, save_path=self.weight_path)
+        print("Restored session")
+        
 
     
     def img_callback(self, data):
@@ -79,7 +97,24 @@ class lanenet_detector():
         # cv2.waitKey(0)
         original_img = cv_image.copy()
         resized_image = self.preprocessing(cv_image)
+        # Here we have a grayscale image with lanes
         mask_image = self.inference_net(resized_image, original_img)
+
+        # Begin spline fitting!
+        # 1: Figure out which color is left and which color is right
+        """
+        Split image in half; find centroids of every color in each half.
+        Left lane will have centroid furthest right in left half
+        Right lane will have centroid furthest left in right half
+        """
+        height, width = mask_image.shape
+        width_cutoff = width // 2
+        left_img = mask_image[:, :width_cutoff]
+        right_img = mask_image[:, width_cutoff:]
+
+
+        # convert to color and publish
+        color_image = cv2.cvtColor(mask_image, cv2.COLOR_GRAY2BGR)
         out_img_msg = self.bridge.cv2_to_imgmsg(mask_image, "bgr8")
         self.pub_image.publish(out_img_msg)
         
@@ -104,7 +139,8 @@ class lanenet_detector():
         mask_image = postprocess_result
         mask_image = cv2.resize(mask_image, (original_img.shape[1],
                                                 original_img.shape[0]),interpolation=cv2.INTER_LINEAR)
-        mask_image = cv2.addWeighted(original_img, 0.6, mask_image, 5.0, 0)
+        # Don't want overlaid; want raw pixel outs
+        # mask_image = cv2.addWeighted(original_img, 0.6, mask_image, 5.0, 0)
         return mask_image
 
 
