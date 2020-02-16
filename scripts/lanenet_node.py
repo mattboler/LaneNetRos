@@ -153,6 +153,7 @@ class lanenet_detector():
         
         if left_count == 0 and right_count == 0:
             state = "TRACKING_LOST"
+            return
         elif left_count == 0:
             state = "RIGHT_ONLY"
         elif right_count == 0:
@@ -200,8 +201,10 @@ class lanenet_detector():
             center_points = np.vstack([center_fit_x, plot_y])
             world_pts = self.pix_to_world(center_points)
         
+        print world_pts
         n_points = world_pts.shape[1]
         n_out = n_points - 1
+
         angles_out = np.zeros((n_out))
         
         path = Path()
@@ -216,20 +219,23 @@ class lanenet_detector():
             dy = y2 - y1
             theta = np.arctan2(dy, dx)
             angles_out[i] = theta
+
             x = float(x1)
             y = float(y1)
             w = np.cos(theta/2)
             z = np.sin(theta/2)
             pose = PoseStamped
             p = Pose()
-            p.position.x = x
-            p.position.y = y
+            p.position.x = x1
+            p.position.y = y1
             p.position.z = 0
             p.orientation.x = 0.0
             p.orientation.y = 0.0
             p.orientation.z = z
             p.orientation.w = w
             pose.pose = p
+            pose.header = data.header
+            path.poses.append(pose)
         
         self.pub_nav.publish(path)
 
