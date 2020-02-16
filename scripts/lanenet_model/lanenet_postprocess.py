@@ -148,14 +148,6 @@ class _LaneNetCluster(object):
 
         """
         self._color_map = [10, 20, 30, 40, 50, 60, 70, 80]
-        """[np.array([255, 0, 0]),
-                           np.array([0, 255, 0]),
-                           np.array([0, 0, 255]),
-                           np.array([125, 125, 0]),
-                           np.array([0, 125, 125]),
-                           np.array([125, 0, 125]),
-                           np.array([50, 100, 50]),
-                           np.array([100, 50, 100])]"""
 
     @staticmethod
     def _embedding_feats_dbscan_cluster(embedding_image_feats):
@@ -269,7 +261,7 @@ class LaneNetPostProcessor(object):
         self._remap_to_ipm_x = remap_file_load_ret['remap_to_ipm_x']
         self._remap_to_ipm_y = remap_file_load_ret['remap_to_ipm_y']
 
-        self._color_map = [10, 20, 30, 40, 50, 60, 70, 80]
+        self._color_map = [30, 60, 90, 120, 150, 180, 210, 240]
 
     def _load_remap_matrix(self):
         """
@@ -290,7 +282,7 @@ class LaneNetPostProcessor(object):
 
         return ret
 
-    def postprocess(self, binary_seg_result, instance_seg_result=None, min_area_threshold=100, source_image=None):
+    def postprocess(self, binary_seg_result, instance_seg_result=None, min_area_threshold=80, source_image=None):
         """
 
         :param binary_seg_result:
