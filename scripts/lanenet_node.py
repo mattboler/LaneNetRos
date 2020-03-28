@@ -228,10 +228,8 @@ class lanenet_detector():
             z = np.sin(theta/2)
             P = PoseStamped()
             p = Pose()
-            #p.position.x = x1
-            #p.position.y = y1
-            p.position.x = i
-            p.position.y = i
+            p.position.x = x1
+            p.position.y = y1
             p.position.z = 0
             p.orientation.x = 0.0
             p.orientation.y = 0.0
