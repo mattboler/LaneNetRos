@@ -162,14 +162,17 @@ class _LaneNetCluster(object):
             db.fit(features)
         except Exception as err:
             log.error(err)
+            print err
             ret = {
                 'origin_features': None,
                 'cluster_nums': 0,
                 'db_labels': None,
-                'cluster_center': None
+                'cluster_center': None,
+                'unique_labels': None
             }
             return ret
         db_labels = db.labels_
+        #print db_labels
         unique_labels = np.unique(db_labels)
 
         num_clusters = len(unique_labels)
@@ -226,21 +229,24 @@ class _LaneNetCluster(object):
             embedding_image_feats=get_lane_embedding_feats_result['lane_embedding_feats']
         )
 
+        #print dbscan_cluster_result
+
         mask = np.zeros(shape=[binary_seg_result.shape[0], binary_seg_result.shape[1]], dtype=np.uint8)
         db_labels = dbscan_cluster_result['db_labels']
         unique_labels = dbscan_cluster_result['unique_labels']
         coord = get_lane_embedding_feats_result['lane_coordinates']
-
         lane_coords = []
-
-        for index, label in enumerate(unique_labels.tolist()):
-            if label == -1:
-                continue
-            idx = np.where(db_labels == label)
-            pix_coord_idx = tuple((coord[idx][:, 1], coord[idx][:, 0]))
-            # 
-            mask[pix_coord_idx] = self._color_map[index]
-            lane_coords.append(coord[idx])
+        
+        if db_labels is not None:
+            
+            for index, label in enumerate(unique_labels.tolist()):
+                if label == -1:
+                    continue
+                idx = np.where(db_labels == label)
+                pix_coord_idx = tuple((coord[idx][:, 1], coord[idx][:, 0]))
+                # 
+                mask[pix_coord_idx] = self._color_map[index]
+                lane_coords.append(coord[idx])
 
         return mask, lane_coords
 

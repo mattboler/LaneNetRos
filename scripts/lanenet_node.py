@@ -121,6 +121,7 @@ class lanenet_detector():
         resized_image = self.preprocessing(cv_image)
         # Here we have a grayscale image with lanes
         mask_image = self.inference_net(resized_image, original_img)
+        print (np.sum(mask_image))
 
         # Begin spline fitting!
         # 1: Figure out which color is left and which color is right
@@ -160,6 +161,8 @@ class lanenet_detector():
             state = "LEFT_ONLY"
         else:
             state = "BOTH_LANES"
+        
+        print state
         
         # Build data for polyfit
         if state == "RIGHT_ONLY" or state == "BOTH_LANES":
@@ -201,7 +204,7 @@ class lanenet_detector():
             center_points = np.vstack([center_fit_x, plot_y])
             world_pts = self.pix_to_world(center_points)
         
-        print world_pts
+        #print world_pts
         n_points = world_pts.shape[1]
         n_out = n_points - 1
 
@@ -219,25 +222,30 @@ class lanenet_detector():
             dy = y2 - y1
             theta = np.arctan2(dy, dx)
             angles_out[i] = theta
-
             x = float(x1)
             y = float(y1)
             w = np.cos(theta/2)
             z = np.sin(theta/2)
-            pose = PoseStamped
+            P = PoseStamped()
             p = Pose()
-            p.position.x = x1
-            p.position.y = y1
+            #p.position.x = x1
+            #p.position.y = y1
+            p.position.x = i
+            p.position.y = i
             p.position.z = 0
             p.orientation.x = 0.0
             p.orientation.y = 0.0
             p.orientation.z = z
             p.orientation.w = w
-            pose.pose = p
-            pose.header = data.header
-            path.poses.append(pose)
+            P.pose = p
+            P.header = data.header
+            path.poses.append(P)
+            #print P
+        
+        #print path
         
         self.pub_nav.publish(path)
+        #print path
 
         # convert to color and publish
         color_image = cv2.cvtColor(mask_image, cv2.COLOR_GRAY2BGR)
